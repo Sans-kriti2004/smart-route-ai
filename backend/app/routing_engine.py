@@ -74,6 +74,25 @@ def find_route(origin_place, destination_place, weight_type):
 def route_to_coords(route):
     return [(G.nodes[n]['y'], G.nodes[n]['x']) for n in route]
 
+# ----------------------------------
+#Get the coordinates for the API response
+# ----------------------------------
+def get_route_coords(origin, destination, mode):
+
+    assign_edge_weights()
+
+    if mode == "fastest":
+        weight = "fastest_weight"
+    elif mode == "safe":
+        weight = "safe_weight"
+    elif mode == "family":
+        weight = "family_weight"
+    else:
+        weight = "fastest_weight"
+
+    route = find_route(origin, destination, weight)
+
+    return route_to_coords(route)
 
 # ----------------------------------
 # Example Run
@@ -127,3 +146,4 @@ if __name__ == "__main__":
     m.save("routes_map.html")
 
     print("Map saved as routes_map.html")
+    
