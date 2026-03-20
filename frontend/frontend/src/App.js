@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -11,7 +11,6 @@ function App() {
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
 
-  // NEW states
   const [fastest, setFastest] = useState([]);
   const [safe, setSafe] = useState([]);
   const [family, setFamily] = useState([]);
@@ -19,11 +18,21 @@ function App() {
   const [startSuggestions, setStartSuggestions] = useState([]);
   const [endSuggestions, setEndSuggestions] = useState([]);
 
+  const [selectedMode, setSelectedMode] = useState(null);
+  const [navigationStarted, setNavigationStarted] = useState(false);
+  const [navIndex, setNavIndex] = useState(0);
+
+  // -----------------------------
+  // FETCH ROUTES
+  // -----------------------------
   const fetchRoute = async () => {
     if (!start || !end) {
       alert("Enter start and destination");
       return;
     }
+
+    setNavigationStarted(false);
+    setSelectedMode(null);
 
     const modes = ["fastest", "safe", "family"];
 
@@ -41,11 +50,13 @@ function App() {
         if (m === "family") setFamily(data.route);
       } catch (err) {
         console.error(err);
-        alert("Error fetching route");
       }
     }
   };
 
+  // -----------------------------
+  // AUTOCOMPLETE
+  // -----------------------------
   const fetchSuggestions = async (query, setSuggestions) => {
     if (!query) return;
 
@@ -60,11 +71,51 @@ function App() {
     }
   };
 
+  // -----------------------------
+  // GET SELECTED ROUTE
+  // -----------------------------
+  const getSelectedRoute = () => {
+    if (selectedMode === "fastest") return fastest;
+    if (selectedMode === "safe") return safe;
+    if (selectedMode === "family") return family;
+    return [];
+  };
+
+  // -----------------------------
+  // NAVIGATION SIMULATION
+  // -----------------------------
+  useEffect(() => {
+  if (!navigationStarted) return;
+
+  let route = [];
+
+  if (selectedMode === "fastest") route = fastest;
+  if (selectedMode === "safe") route = safe;
+  if (selectedMode === "family") route = family;
+
+  if (!route.length) return;
+
+  const interval = setInterval(() => {
+    setNavIndex((prev) => {
+      if (prev >= route.length - 1) {
+        clearInterval(interval);
+        return prev;
+      }
+      return prev + 1;
+    });
+  }, 300);
+
+  return () => clearInterval(interval);
+}, [navigationStarted, selectedMode, fastest, safe, family]);
+
+  // -----------------------------
+  // UI
+  // -----------------------------
   return (
     <div style={{ padding: "20px" }}>
       <h2>Smart Route AI</h2>
 
-      {/* Inputs */}
+      {/* INPUTS */}
       <input
         type="text"
         placeholder="Start location"
@@ -115,9 +166,33 @@ function App() {
         ))}
       </ul>
 
-      <button onClick={fetchRoute}>Get Route</button>
+      <br />
 
-      {/* Map */}
+      <button onClick={fetchRoute}>Get Routes</button>
+
+      {/* ROUTE SELECTION */}
+      <div style={{ marginTop: "10px" }}>
+        <button onClick={() => setSelectedMode("fastest")}>Fastest</button>
+        <button onClick={() => setSelectedMode("safe")}>Safe</button>
+        <button onClick={() => setSelectedMode("family")}>Family</button>
+      </div>
+
+      {/* START NAVIGATION */}
+      <button
+        style={{ marginTop: "10px" }}
+        onClick={() => {
+          if (!selectedMode) {
+            alert("Select a route first");
+            return;
+          }
+          setNavIndex(0);
+          setNavigationStarted(true);
+        }}
+      >
+        Start Navigation
+      </button>
+
+      {/* MAP */}
       <MapContainer
         center={[26.4499, 80.3319]}
         zoom={12}
@@ -128,20 +203,35 @@ function App() {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        {/* MULTIPLE ROUTES */}
+        {/* ROUTES */}
         {fastest.length > 0 && (
-          <Polyline positions={fastest} color="blue" weight={6} opacity={0.7} />
+          <Polyline
+            positions={fastest}
+            color="blue"
+            weight={selectedMode === "fastest" ? 8 : 4}
+            opacity={selectedMode === "fastest" ? 1 : 0.5}
+          />
         )}
 
         {safe.length > 0 && (
-          <Polyline positions={safe} color="green" weight={6} opacity={0.7} />
+          <Polyline
+            positions={safe}
+            color="green"
+            weight={selectedMode === "safe" ? 8 : 4}
+            opacity={selectedMode === "safe" ? 1 : 0.5}
+          />
         )}
 
         {family.length > 0 && (
-          <Polyline positions={family} color="red" weight={6} opacity={0.7} />
+          <Polyline
+            positions={family}
+            color="red"
+            weight={selectedMode === "family" ? 8 : 4}
+            opacity={selectedMode === "family" ? 1 : 0.5}
+          />
         )}
 
-        {/* MARKERS */}
+        {/* STATIC MARKERS */}
         {fastest.length > 0 && (
           <>
             <Marker position={fastest[0]}>
@@ -152,6 +242,13 @@ function App() {
               <Popup>Destination</Popup>
             </Marker>
           </>
+        )}
+
+        {/* MOVING NAVIGATION MARKER */}
+        {navigationStarted && getSelectedRoute().length > 0 && (
+          <Marker position={getSelectedRoute()[navIndex]}>
+            <Popup>🚗 Navigating...</Popup>
+          </Marker>
         )}
       </MapContainer>
     </div>
